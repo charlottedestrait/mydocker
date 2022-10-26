@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+
+  mydocker_apache:
+    ports:
+      - "80:80"
+
+  mydocker_php_fpm:
+    container_name: mydocker_php_fpm
+    volumes:
+      - "~/.gitconfig:/home/site/.gitconfig"
+      - "$SSH_AUTH_SOCK:/ssh-agent:ro"
+      - "mydocker_fpm_bashistory:/home/site/homekeep"
+      - "./docker/config/fpm/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini"
+    environment:
+      - SSH_AUTH_SOCK=/ssh-agent
+
+  mydocker_mail:
+    container_name: mydocker_mail
+    image: "mailhog/mailhog:v1.0.1"
+    ports:
+      - "8025:8025"
+
+volumes:
+  mydocker_fpm_bashistory:
+    driver: local

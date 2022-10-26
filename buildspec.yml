@@ -1,0 +1,39 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo Entered the install phase...
+      - apt-get install -y yarn
+
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - echo Generating Tag value
+      - export IMAGE_TAG="$(date +%Y%m%d%H%M)-${BUILDBRANCH}"
+      - export COMMIT_SHA=`git log -1 --pretty="%H"`
+      - echo ${IMAGE_TAG}
+      - php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+      - php composer-setup.php --2
+      - php -r "unlink('composer-setup.php');"
+      - chmod +x composer.phar
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Add Commit SHA
+      - echo $COMMIT_SHA > automation/sha1
+      - echo Installation...
+      - ./composer.phar install --no-dev --prefer-dist
+      - echo Building the PHP Docker image...
+      - docker login -u expanscience -p edf97ef5-da0c-467e-9309-6df85d9aea1a
+      - DOCKER_BUILDKIT=1 docker build -f automation/docker/Dockerfile.php -t ${IMAGE_REPO_PREFIX}-php:$IMAGE_TAG .
+      - docker tag ${IMAGE_REPO_PREFIX}-php:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$REPO_NAMESPACE/${IMAGE_REPO_PREFIX}-php:$IMAGE_TAG
+      - DOCKER_BUILDKIT=1 docker build -f automation/docker/Dockerfile.front -t ${IMAGE_REPO_PREFIX}-front:$IMAGE_TAG .
+      - docker tag ${IMAGE_REPO_PREFIX}-front:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$REPO_NAMESPACE/${IMAGE_REPO_PREFIX}-front:$IMAGE_TAG
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker images...
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$REPO_NAMESPACE/${IMAGE_REPO_PREFIX}-php:$IMAGE_TAG
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$REPO_NAMESPACE/${IMAGE_REPO_PREFIX}-front:$IMAGE_TAG

@@ -1,0 +1,53 @@
+version: '3'
+
+services:
+
+  mydocker_apache:
+    container_name: mydocker_apache
+    build:
+      context: "docker/config/apache"
+      args:
+        - DEV_UID=$DEV_UID
+        - DEV_GID=$DEV_GID
+    volumes:
+      - "./:/home/site/app/www:rw"
+      - "./docker/config/apache/httpd.conf:/usr/local/apache2/conf/httpd.conf:ro"
+      - "./docker/config/apache/vhost.conf:/usr/local/apache2/conf/vhost.conf:ro"
+      - "mydocker_apachelogs:/var/log/app"
+    environment:
+      - SSH_AUTH_SOCK=/ssh-agent
+
+  mydocker_php_fpm:
+    container_name: mydocker_php_fpm
+    build:
+      context: "docker/config/fpm"
+      args:
+        - DEV_UID=$DEV_UID
+        - DEV_GID=$DEV_GID
+    volumes:
+      - "./:/home/site/app/www:rw"
+      - "./docker/config/fpm/www.conf:/usr/local/etc/php-fpm.d/www.conf"
+      - "./docker/config/fpm/bashrc:/home/site/.bashrc"
+      - "./docker/config/fpm/custom_conf.ini:/usr/local/etc/php/conf.d/custom_config.ini"
+      - "mydocker_apachelogs:/home/site/app/logs"
+    user: site
+    env_file:
+      - .env
+
+  mydocker_mysql:
+    container_name: mydocker_mysql
+    image: "mariadb:10.5.8"
+    env_file:
+      - .env
+    volumes:
+      - "mydocker_mysql_data:/var/lib/mysql"
+
+  mydocker_redis:
+    container_name: mydocker_redis
+    image: "redis:5.0.5"
+
+volumes:
+  mydocker_mysql_data:
+    driver: local
+  mydocker_apachelogs:
+    driver: local
